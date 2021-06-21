@@ -11,10 +11,10 @@ END_TO_END = os.getenv('TEST_E2E', False)
 
 class TestIMDBRatings(unittest.TestCase):
     def test_parse_imdb_page__goldenpath_2022_04(self):
-        self.basetest_loadfilefile_imdb_page_goldenpath("imdb_2022-04.html", (1315176, 8.6, 27))
+        self.basetest_loadfilefile_imdb_page_goldenpath("imdb_2022-04.html", (1315176, 8.6, 27, "PG"))
 
     def test_parse_imdb_page__goldenpath_2021_06(self):
-        self.basetest_loadfilefile_imdb_page_goldenpath("imdb_2021-06.html", (1254540, 8.6, 25))
+        self.basetest_loadfilefile_imdb_page_goldenpath("imdb_2021-06.html", (1254540, 8.6, 25, "PG"))
 
     def basetest_loadfilefile_imdb_page_goldenpath(self, filename, expected_output):
         with TEST_FOLDER.joinpath(filename).open() as file:
@@ -26,7 +26,7 @@ class TestIMDBRatings(unittest.TestCase):
 
     def test_parse_imdb_page__error_return_Nones(self):
         input_model = ''
-        expected_output = (None, None, None)
+        expected_output = (None, None, None, None)
 
         actual_output = imdbratings._parse_imdb_result(input_model)
 
@@ -51,7 +51,7 @@ class TestIMDBRatings(unittest.TestCase):
 </html>
         '''
         # endregion
-        expected_output = (None, None, None)
+        expected_output = (None, None, None, None)
 
         actual_output = imdbratings._parse_imdb_result(input_model)
 
