@@ -18,10 +18,19 @@
 # IMDb ratings based on code in metadata.themoviedb.org.python by Team Kodi
 # pylint: disable=missing-docstring
 
-import json
 import re
 from . import api_utils
 from . import get_imdb_id
+
+import json
+import xbmc
+import xbmcaddon
+
+ADDON_SETTINGS = xbmcaddon.Addon()
+ID = ADDON_SETTINGS.getAddonInfo('id')
+
+def log(msg, level=xbmc.LOGDEBUG):
+    xbmc.log(msg='[{addon}]: {msg}'.format(addon=ID, msg=msg), level=level)
 
 IMDB_RATINGS_URL = 'https://www.imdb.com/title/{}/'
 IMDB_LDJSON_REGEX = re.compile(r'<script type="application/ld\+json">(.*?)</script>', re.DOTALL)
@@ -41,24 +50,26 @@ def get_details(uniqueids):
     imdb_id = get_imdb_id(uniqueids)
     if not imdb_id:
         return {}
-    votes, rating, top250 = _get_ratinginfo(imdb_id)
-    return _assemble_imdb_result(votes, rating, top250)
+    votes, rating, top250, cert = _get_imdb_info(imdb_id)
+    return _assemble_imdb_result(votes, rating, top250, cert)
 
-def _get_ratinginfo(imdb_id):
+def _get_imdb_info(imdb_id):
     api_utils.set_headers(dict(HEADERS))
-    response = api_utils.load_info(IMDB_RATINGS_URL.format(imdb_id), default = '', resp_type='text')
+response = api_utils.load_info(IMDB_RATINGS_URL.format(imdb_id), default = '', resp_type='text')
     return _parse_imdb_result(response)
 
-def _assemble_imdb_result(votes, rating, top250):
-    result = {}
+def _assemble_imdb_result(votes, rating, top250, cert):
+    result = {'info': {}}
     if top250:
-        result['info'] = {'top250': top250}
+        result['info'].update({'top250': top250})
     if votes and rating:
         result['ratings'] = {'imdb': {'votes': votes, 'rating': rating}}
+    if cert:
+        result['info'].update({'mpaa': cert})
     return result
 
 def _parse_imdb_result(input_html):
-    rating, votes = _parse_imdb_rating_and_votes(input_html)
+    rating, votes, cert = _parse_imdb_rating_and_votes_and_cert(input_html)
     if rating is None or votes is None:
         # try previous parsers
         rating = _parse_imdb_rating_previous(input_html)
@@ -67,24 +78,24 @@ def _parse_imdb_result(input_html):
     if top250 is None:
         top250 = _parse_imdb_top250_previous(input_html)
 
-    return votes, rating, top250
+    return votes, rating, top250, cert
 
-def _parse_imdb_rating_and_votes(input_html):
+def _parse_imdb_rating_and_votes_and_cert(input_html):
     match = re.search(IMDB_LDJSON_REGEX, input_html)
     if not match:
-        return None, None
+        return None, None, None
 
     try:
         ldjson = json.loads(match.group(1).replace('\n', ''))
     except json.decoder.JSONDecodeError:
-        return None, None
+        return None, None, None
 
     try:
         aggregateRating = ldjson.get('aggregateRating', {})
         rating_value = aggregateRating.get('ratingValue')
-        return rating_value, aggregateRating.get('ratingCount')
+        return rating_value, aggregateRating.get('ratingCount'), ldjson.get('contentRating')
     except AttributeError:
-        return None, None
+        return None, None, None
 
 def _parse_imdb_top250(input_html):
     match = re.search(IMDB_TOP250_REGEX, input_html)
